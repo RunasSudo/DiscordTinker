@@ -37,9 +37,11 @@ window.ws = undefined;
 
 var isWsReady = false;
 var lastS = null; // Required for heartbeat responses
+window.gameName = null;
 var heartbeatTimer;
 
-window.addEventListener('load', function() {
+// TODO: Better error handling, e.g. login rate limits - Right now we simply out-compete the Discord client and let that handle the rate limit
+//window.addEventListener('load', function() {
 	var xhr = new XMLHttpRequest();
 	xhr.open('GET', 'https://discordapp.com/api/gateway');
 	xhr.setRequestHeader('Authorization', token);
@@ -47,26 +49,32 @@ window.addEventListener('load', function() {
 	xhr.addEventListener('load', function() {
 		var gatewayResponse = JSON.parse(this.responseText);
 		window.ws = new WebSocket(gatewayResponse.url + '?v=5&encoding=json');
-		ws.onerror = function() {
-			console.log('A DiscordTinker error occurred');
-		}
-		ws.onclose = function(event) {
-			console.log('DiscordTinker websocket closed');
-			console.log(event);
-			closeWS();
-		}
 		ws.onmessage = function(event) {
 			var msg = JSON.parse(event.data);
-			//console.log(msg);
+			console.log(msg);
 			switch (msg.op) {
 				case 10:
 					// Hello
+					console.log('DiscordTinker got hello');
 					// Begin sending heartbeats
 					heartbeatTimer = setInterval(function() {
 						ws.send(JSON.stringify({
 							op: 1,
 							d: lastS
 						}));
+						// Also other periodic measures
+						// Set status
+						if (gameName !== null) {
+							ws.send(JSON.stringify({
+								op: 3,
+								d: {
+									idle_since: null,
+									game: {
+										name: gameName
+									}
+								}
+							}));
+						}
 					}, msg.d.heartbeat_interval * 0.9);
 					// Send Identify
 					ws.send(JSON.stringify({
@@ -97,27 +105,23 @@ window.addEventListener('load', function() {
 					break;
 			}
 		}
+		ws.onerror = function() {
+			console.log('A DiscordTinker error occurred');
+		}
+		ws.onclose = function(event) {
+			console.log('DiscordTinker websocket closed');
+			console.log(event);
+			closeWS();
+		}
 	});
 	xhr.send();
-
+	
 	window.closeWS = function() {
 		isWsReaady = false;
 		clearInterval(heartbeatTimer);
 		ws.close();
 	}
-
-	window.setStatus = function(status) {
-		ws.send(JSON.stringify({
-			op: 3,
-			d: {
-				idle_since: null,
-				game: {
-					name: status
-				}
-			}
-		}));
-	}
-
+	
 	window.sendEmbed = function(authorName, authorIcon, description, time) {
 		var channelId = window.location.href.split('/')[5];
 		var xhr = new XMLHttpRequest();
@@ -139,7 +143,7 @@ window.addEventListener('load', function() {
 			}
 		}));
 	}
-
+	
 	window.addEventListener('keypress', function(evt) {
 		if (evt.key === 'q' && evt.altKey) {
 			// Commands!
@@ -172,9 +176,23 @@ window.addEventListener('load', function() {
 					});
 					xhr.send();
 					break;
+				case 'status':
+					gameName = command.substring(7);
+					if (gameName !== null) {
+						ws.send(JSON.stringify({
+							op: 3,
+							d: {
+								idle_since: null,
+								game: {
+									name: gameName
+								}
+							}
+						}));
+					}
+					break;
 				default:
 					alert('Unknown command');
 			}
 		}
 	});
-});
+//});
