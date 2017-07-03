@@ -25,24 +25,28 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-console.log('DiscordTinker loaded!')
+USER_AGENT = 'DiscordTinker (https://runassudo.github.io, ' + GM_info.script.version + ')'
+
+console.log('DiscordTinker ' + GM_info.script.version + ' loaded!')
+// Discord now unsets window.localStorage for security. We will restore it so we can access it from the script.
+// WARNING: This opens the user up to potential attacks on the API token. Take care!
 window._localStorage = window.localStorage;
 
-window.token = JSON.parse(_localStorage.getItem("token"));
+window.token = JSON.parse(_localStorage.getItem('token'));
 window.ws = undefined;
 
 var isWsReady = false;
-var lastS = null;
+var lastS = null; // Required for heartbeat responses
 var heartbeatTimer;
 
 window.addEventListener('load', function() {
 	var xhr = new XMLHttpRequest();
-	xhr.open("GET", "https://discordapp.com/api/gateway");
-	xhr.setRequestHeader("Authorization", token);
-	xhr.setRequestHeader("User-Agent", "DiscordTinker (https://runassudo.github.io, 0.1)");
-	xhr.addEventListener("load", function() {
-		//console.log(this);
-		window.ws = new WebSocket("wss://gateway.discord.gg?v=5&encoding=json");
+	xhr.open('GET', 'https://discordapp.com/api/gateway');
+	xhr.setRequestHeader('Authorization', token);
+	xhr.setRequestHeader('User-Agent', USER_AGENT);
+	xhr.addEventListener('load', function() {
+		var gatewayResponse = JSON.parse(this.responseText);
+		window.ws = new WebSocket(gatewayResponse.url + '?v=5&encoding=json');
 		ws.onerror = function() {
 			console.log('A DiscordTinker error occurred');
 		}
@@ -63,7 +67,7 @@ window.addEventListener('load', function() {
 							op: 1,
 							d: lastS
 						}));
-					}, msg.d.heartbeat_interval);
+					}, msg.d.heartbeat_interval * 0.9);
 					// Send Identify
 					ws.send(JSON.stringify({
 						op: 2,
@@ -117,11 +121,11 @@ window.addEventListener('load', function() {
 	window.sendEmbed = function(authorName, authorIcon, description, time) {
 		var channelId = window.location.href.split('/')[5];
 		var xhr = new XMLHttpRequest();
-		xhr.open("POST", "https://discordapp.com/api/channels/" + channelId + "/messages");
-		xhr.setRequestHeader("Authorization", token);
-		xhr.setRequestHeader("Content-Type", "application/json");
-		xhr.setRequestHeader("User-Agent", "DiscordTinker (https://runassudo.github.io, 0.1)");
-		xhr.addEventListener("load", function() {
+		xhr.open('POST', 'https://discordapp.com/api/channels/' + channelId + '/messages');
+		xhr.setRequestHeader('Authorization', token);
+		xhr.setRequestHeader('Content-Type', 'application/json');
+		xhr.setRequestHeader('User-Agent', USER_AGENT);
+		xhr.addEventListener('load', function() {
 			console.log(this);
 		});
 		xhr.send(JSON.stringify({
@@ -136,8 +140,8 @@ window.addEventListener('load', function() {
 		}));
 	}
 
-	window.addEventListener("keypress", function(evt) {
-		if (evt.key === "q" && evt.altKey) {
+	window.addEventListener('keypress', function(evt) {
+		if (evt.key === 'q' && evt.altKey) {
 			// Commands!
 			var command = prompt('DiscordTinker command:');
 			if (command === null) {
@@ -153,10 +157,11 @@ window.addEventListener('load', function() {
 					// Get the message
 					var channelId = window.location.href.split('/')[5];
 					var xhr = new XMLHttpRequest();
-					xhr.open("GET", "https://discordapp.com/api/channels/" + channelId + "/messages?around=" + msgId);
-					xhr.setRequestHeader("Authorization", token);
-					xhr.setRequestHeader("User-Agent", "DiscordTinker (https://runassudo.github.io, 0.1)");
-					xhr.addEventListener("load", function() {
+					// For some reason the channels/ID/messages/ID endpoint is restricted to bots only
+					xhr.open('GET', 'https://discordapp.com/api/channels/' + channelId + '/messages?around=' + msgId);
+					xhr.setRequestHeader('Authorization', token);
+					xhr.setRequestHeader('User-Agent', USER_AGENT);
+					xhr.addEventListener('load', function() {
 						console.log(this);
 						var messages = JSON.parse(this.responseText);
 						for (var message of messages) {
