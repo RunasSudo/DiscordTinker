@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        DiscordTinker
 // @namespace   https://yingtongli.me
-// @include     https://discordapp.com/*
+// @include     https://discordapp.com/channels/*
 // @version     3
 // @grant       none
 // @run-at      document-start
@@ -201,11 +201,11 @@ if (typeof(GM_info) === 'undefined') {
 	DiscordTinker.Gateway.onHeartbeat = function() {
 		// Good(?) opportunity to do other periodic functions
 		// TODO: Pluginise?
-		if (DiscordTinker.Prefs.gameName !== null) {
+		if (DiscordTinker.Prefs.getPref('gameName', null) !== null) {
 			DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.STATUS_UPDATE, {
 				idle_since: null,
 				game: {
-					name: DiscordTinker.Prefs.gameName
+					name: DiscordTinker.Prefs.getPref('gameName')
 				}
 			});
 		}
@@ -254,7 +254,7 @@ if (typeof(GM_info) === 'undefined') {
 		DiscordTinker.Int.React._createElement = DiscordTinker.Int.React.createElement;
 		DiscordTinker.Int.React.createFunnyElement = function(type, props, key, children) {
 			// a la r(type, props, key, children...)
-			props.children = children
+			props.children = children;
 			return {
 				$$typeof: Symbol.for('react.element'),
 				type: type,
@@ -262,7 +262,7 @@ if (typeof(GM_info) === 'undefined') {
 				ref: null,
 				props: props,
 				_owner: null
-			}
+			};
 		}
 		DiscordTinker.Int.React.createElement = function() {
 			if (arguments[0].displayName) {
@@ -296,7 +296,20 @@ if (typeof(GM_info) === 'undefined') {
 	
 	// Behaviour stuff
 	DiscordTinker.Prefs = {};
-	DiscordTinker.Prefs.gameName = null;
+	DiscordTinker.Prefs.data = {};
+	if (DiscordTinker.localStorage.getItem('discord_tinker_prefs')) {
+		DiscordTinker.Prefs.data = JSON.parse(DiscordTinker.localStorage.getItem('discord_tinker_prefs'));
+	}
+	DiscordTinker.Prefs.getPref = function(key, def) {
+		return DiscordTinker.Prefs.data[key] === undefined ? def : DiscordTinker.Prefs.data[key];
+	};
+	DiscordTinker.Prefs.setPref = function(key, val) {
+		DiscordTinker.Prefs.data[key] = val;
+		DiscordTinker.Prefs.save();
+	};
+	DiscordTinker.Prefs.save = function() {
+		DiscordTinker.localStorage.setItem('discord_tinker_prefs', JSON.stringify(DiscordTinker.Prefs.data));
+	};
 	
 	DiscordTinker.Chat = {};
 	DiscordTinker.Chat.sendEmbed = function(authorName, authorIcon, description, time) {
@@ -347,7 +360,7 @@ if (typeof(GM_info) === 'undefined') {
 					});
 					break;
 				case 'status':
-					DiscordTinker.Prefs.gameName = command.substring(7);
+					DiscordTinker.Prefs.setPref('gameName', command.substring(7));
 					DiscordTinker.Gateway.onHeartbeat();
 					break;
 				default:
@@ -355,4 +368,4 @@ if (typeof(GM_info) === 'undefined') {
 			}
 		}
 	});
-})(window.DiscordTinker = window.DiscordTinker || {})
+})(window.DiscordTinker = window.DiscordTinker || {});
