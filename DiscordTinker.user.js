@@ -315,35 +315,64 @@ if (typeof(GM_info) === 'undefined') {
 	};
 	
 	DiscordTinker.Chat = {};
-	DiscordTinker.Chat.sendEmbed = function(authorName, authorIcon, description, time) {
-		var channelId = window.location.href.split('/')[5];
+	DiscordTinker.Chat.getChannelIds = function() {
+		var bits = window.location.pathname.split('/');
+		return [bits[2], bits[3]];
+	}
+	
+	DiscordTinker.Chat.sendEmbed = function(authorName, authorIcon, description, time, color) {
+		var embedObj = {
+			description: description,
+			timestamp: time,
+			author: {
+				name: authorName,
+				icon_url: authorIcon
+			}
+		};
+		if (color) {
+			embedObj.color = color;
+		}
+		
+		var channelId = DiscordTinker.Chat.getChannelIds()[1];
 		DiscordTinker.HTTP.xhr('POST', 'https://discordapp.com/api/channels/' + channelId + '/messages', function(xhr) {
 			console.log(xhr);
 		}, {
 			'Content-Type': 'application/json'
 		}, JSON.stringify({
-			embed: {
-				description: description,
-				timestamp: time,
-				author: {
-					name: authorName,
-					icon_url: authorIcon
-				}
-			}
+			embed: embedObj
 		}));
 	};
 	DiscordTinker.Chat.quoteMessage = function(message) {
-		var guildId = window.location.href.split('/')[4];
+		var guildId = DiscordTinker.Chat.getChannelIds()[0];
 		DiscordTinker.HTTP.xhr('GET', 'https://discordapp.com/api/guilds/' + guildId + '/members/' + message.author.id, function(xhr) {
 			console.log(xhr);
-			var nickname = JSON.parse(xhr.responseText).nick;
+			var guildMember = JSON.parse(xhr.responseText);
 			var messageAuthorName = null;
-			if (nickname === undefined) {
+			if (guildMember.nick === undefined) {
 				messageAuthorName = message.author.username;
 			} else {
-				messageAuthorName = nickname;
+				messageAuthorName = guildMember.nick;
 			}
-			DiscordTinker.Chat.sendEmbed(messageAuthorName, 'https://cdn.discordapp.com/avatars/' + message.author.id + '/' + message.author.avatar + '.png?size=64', message.content, message.timestamp);
+			
+			DiscordTinker.HTTP.xhr('GET', 'https://discordapp.com/api/guilds/' + guildId, function(xhr) {
+				console.log(xhr);
+				var guild = JSON.parse(xhr.responseText);
+				var color = (function() {
+					for (var roleId of guildMember.roles) {
+						for (var roleObj of guild.roles) {
+							if (roleId == roleObj.id) {
+								if (roleObj.color != 0) {
+									return roleObj.color;
+								}
+								break; // Break out of inner loop, proceed to next role ID
+							}
+						}
+					}
+					return undefined;
+				})();
+				
+				DiscordTinker.Chat.sendEmbed(messageAuthorName, 'https://cdn.discordapp.com/avatars/' + message.author.id + '/' + message.author.avatar + '.png?size=64', message.content, message.timestamp, color);
+			});
 		});
 	};
 	
@@ -362,7 +391,7 @@ if (typeof(GM_info) === 'undefined') {
 				case 'quote':
 					var msgId = commandBits[1];
 					// Get the message
-					var channelId = window.location.href.split('/')[5];
+					var channelId = DiscordTinker.Chat.getChannelIds()[1];
 					DiscordTinker.HTTP.xhr('GET', 'https://discordapp.com/api/channels/' + channelId + '/messages?around=' + msgId, function(xhr) {
 						console.log(xhr);
 						var messages = JSON.parse(xhr.responseText);
