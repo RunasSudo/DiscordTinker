@@ -267,17 +267,19 @@ if (typeof(GM_info) === 'undefined') {
 		DiscordTinker.Int.React.createElement = function() {
 			if (arguments[0].displayName) {
 				if (arguments[0].displayName === 'OptionPopout') {
-					if (!arguments[0].prototype.render.patched) {
-						var createElementProps = arguments[1];
-						var patchedComponent = function() {
-							var result = patchedComponent.patched.apply(this, arguments);
-							var result = DiscordTinker.Int.React.afterRenderPopout(createElementProps, result);
-							console.log(result);
-							return result;
-						}
-						patchedComponent.patched = arguments[0].prototype.render;
-						arguments[0].prototype.render = patchedComponent;
+					var createElementProps = arguments[1];
+					var patchedComponent = function() {
+						var result = patchedComponent.patched.apply(this, arguments);
+						var result = DiscordTinker.Int.React.afterRenderPopout(createElementProps, result);
+						console.log(result);
+						return result;
 					}
+					if (arguments[0].prototype.render.patched) {
+						patchedComponent.patched = arguments[0].prototype.render.patched;
+					} else {
+						patchedComponent.patched = arguments[0].prototype.render;
+					}
+					arguments[0].prototype.render = patchedComponent;
 				}
 				DiscordTinker.Int.ReactComponents.components[arguments[0].displayName] = arguments[0];
 			}
