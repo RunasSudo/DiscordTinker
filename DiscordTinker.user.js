@@ -98,7 +98,7 @@ if (typeof(GM_info) === 'undefined') {
 	
 	DiscordTinker.WebSocket.onmessage = function(event) {
 		var msg = JSON.parse(event.data);
-		console.log(msg);
+		//console.log(msg);
 		DiscordTinker.Gateway.onmessage(msg.op, msg.d, msg.s, msg.t);
 	};
 	DiscordTinker.WebSocket.onerror = function(event) {
@@ -211,6 +211,88 @@ if (typeof(GM_info) === 'undefined') {
 		}
 	};
 	
+	DiscordTinker.WebSocket.connect();
+	
+	// Internal stuff
+	DiscordTinker.Int = {};
+	DiscordTinker.Int.WebpackModules = {};
+	// We must wait for the Javascript to be loaded before patching
+	window.addEventListener('load', function() {
+		DiscordTinker.Int.WebpackModules.require = webpackJsonp([], {'__discord_tinker__': function(module, exports, req) { exports.default = req; }}, ['__discord_tinker__']).default;
+		delete DiscordTinker.Int.WebpackModules.require.m['__discord_tinker__'];
+		delete DiscordTinker.Int.WebpackModules.require.c['__discord_tinker__'];
+		DiscordTinker.Int.WebpackModules.find = function(filter) {
+			for (var i in DiscordTinker.Int.WebpackModules.require.c) {
+				// Ignore inherited properties
+				if (DiscordTinker.Int.WebpackModules.require.c.hasOwnProperty(i)) {
+					var module = DiscordTinker.Int.WebpackModules.require.c[i].exports;
+					if (module && module.__esModule && module.default) {
+						module = module.default;
+					}
+					//console.log(module);
+					if (module && filter(module)) {
+						return module;
+					}
+				}
+			}
+			return null;
+		};
+		DiscordTinker.Int.WebpackModules.findByProperties = function(properties) {
+			return DiscordTinker.Int.WebpackModules.find(function(module) {
+				for (var property of properties) {
+					if (!(property in module)) {
+						return false;
+					}
+				}
+				return true;
+			});
+		};
+		
+		DiscordTinker.Int.React = DiscordTinker.Int.WebpackModules.findByProperties(['createMixin']);
+		DiscordTinker.Int.ReactComponents = {};
+		DiscordTinker.Int.ReactComponents.components = {};
+		DiscordTinker.Int.React._createElement = DiscordTinker.Int.React.createElement;
+		DiscordTinker.Int.React.createFunnyElement = function(type, props, key, children) {
+			// a la r(type, props, key, children...)
+			props.children = children
+			return {
+				$$typeof: Symbol.for('react.element'),
+				type: type,
+				key: key === undefined ? null : '' + key,
+				ref: null,
+				props: props,
+				_owner: null
+			}
+		}
+		DiscordTinker.Int.React.createElement = function() {
+			if (arguments[0].displayName) {
+				if (arguments[0].displayName === 'OptionPopout') {
+					if (!arguments[0].prototype.render.patched) {
+						console.log('Patching render');
+						var patchedComponent = function() {
+							console.log('Called render');
+							var result = patchedComponent.patched.apply(this, arguments);
+							var result = DiscordTinker.Int.React.afterRenderPopout(arguments, result);
+							console.log(result);
+							return result;
+						}
+						patchedComponent.patched = arguments[0].prototype.render;
+						arguments[0].prototype.render = patchedComponent;
+					}
+				}
+				DiscordTinker.Int.ReactComponents.components[arguments[0].displayName] = arguments[0];
+			}
+			var result = DiscordTinker.Int.React._createElement.apply(this, arguments);
+			return result;
+		};
+		DiscordTinker.Int.React.afterRenderPopout = function(args, result) {
+			// TODO: Pluggable listener architecture
+			result.props.children.push(DiscordTinker.Int.React.createFunnyElement('div', { className: 'btn-item' }, undefined, ['Quote']));
+			return result;
+		};
+	});
+	
+	// Behaviour stuff
 	DiscordTinker.Prefs = {};
 	DiscordTinker.Prefs.gameName = null;
 	
@@ -268,6 +350,4 @@ if (typeof(GM_info) === 'undefined') {
 			}
 		}
 	});
-	
-	DiscordTinker.WebSocket.connect();
 })(window.DiscordTinker = window.DiscordTinker || {})
