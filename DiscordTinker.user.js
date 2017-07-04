@@ -2,9 +2,9 @@
 // @name        DiscordTinker
 // @namespace   https://yingtongli.me
 // @include     https://discordapp.com/*
-// @version     1
+// @version     2
 // @grant       none
-// @run-at document-start
+// @run-at      document-start
 // ==/UserScript==
 
 /*
@@ -25,114 +25,203 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-USER_AGENT = 'DiscordTinker (https://runassudo.github.io, ' + GM_info.script.version + ')'
+if (typeof(GM_info) === 'undefined') {
+	// Dummy for testing purposes
+	GM_info = {script: {}};
+}
 
-console.log('DiscordTinker ' + GM_info.script.version + ' loaded!')
-// Discord now unsets window.localStorage for security. We will restore it so we can access it from the script.
-// WARNING: This opens the user up to potential attacks on the API token. Take care!
-window._localStorage = window.localStorage;
-
-window.token = JSON.parse(_localStorage.getItem('token'));
-window.ws = undefined;
-
-var isWsReady = false;
-var lastS = null; // Required for heartbeat responses
-window.gameName = null;
-var heartbeatTimer;
-
-// TODO: Better error handling, e.g. login rate limits - Right now we simply out-compete the Discord client and let that handle the rate limit
-//window.addEventListener('load', function() {
-	var xhr = new XMLHttpRequest();
-	xhr.open('GET', 'https://discordapp.com/api/gateway');
-	xhr.setRequestHeader('Authorization', token);
-	xhr.setRequestHeader('User-Agent', USER_AGENT);
-	xhr.addEventListener('load', function() {
-		var gatewayResponse = JSON.parse(this.responseText);
-		window.ws = new WebSocket(gatewayResponse.url + '?v=5&encoding=json');
-		ws.onmessage = function(event) {
-			var msg = JSON.parse(event.data);
-			console.log(msg);
-			switch (msg.op) {
-				case 10:
-					// Hello
-					console.log('DiscordTinker got hello');
-					// Begin sending heartbeats
-					heartbeatTimer = setInterval(function() {
-						ws.send(JSON.stringify({
-							op: 1,
-							d: lastS
-						}));
-						// Also other periodic measures
-						// Set status
-						if (gameName !== null) {
-							ws.send(JSON.stringify({
-								op: 3,
-								d: {
-									idle_since: null,
-									game: {
-										name: gameName
-									}
-								}
-							}));
-						}
-					}, msg.d.heartbeat_interval * 0.9);
-					// Send Identify
-					ws.send(JSON.stringify({
-						op: 2,
-						d: {
-							token: token,
-							properties: {
-								'$os': 'linux',
-								'$browser': 'DiscordTinker',
-								'$device': 'DiscordTinker',
-								'$referrer': '',
-								'$referring_domain': ''
-							},
-							compress: false,
-							large_threshold: 50,
-							shard: [0, 1]
-						}
-					}));
-					break;
-				case 0:
-					// Dispatch
-					lastS = msg.s;
-					switch (msg.t) {
-						case 'READY':
-							console.log('DiscordTinker websocket ready');
-							isWsReady = true;
-					}
-					break;
-			}
-		}
-		ws.onerror = function() {
-			console.log('A DiscordTinker error occurred');
-		}
-		ws.onclose = function(event) {
-			console.log('DiscordTinker websocket closed');
-			console.log(event);
-			closeWS();
-		}
-	});
-	xhr.send();
+(function(DiscordTinker) {
+	DiscordTinker.USER_AGENT = 'DiscordTinker (https://runassudo.github.io, ' + GM_info.script.version + ')';
 	
-	window.closeWS = function() {
-		isWsReaady = false;
-		clearInterval(heartbeatTimer);
-		ws.close();
+	console.log('DiscordTinker ' + GM_info.script.version + ' loaded!');
+	
+	// Discord now unsets window.localStorage for security. We will restore it so we can access it from the script.
+	// WARNING: This opens the user up to potential attacks on the API token. Take care!
+	if (!DiscordTinker.localStorage) {
+		DiscordTinker.localStorage = window.localStorage;
 	}
 	
-	window.sendEmbed = function(authorName, authorIcon, description, time) {
-		var channelId = window.location.href.split('/')[5];
+	DiscordTinker.token = JSON.parse(DiscordTinker.localStorage.getItem('token'));
+	
+	// HTTP API handling
+	DiscordTinker.HTTP = {};
+	DiscordTinker.HTTP.xhr = function(method, url, callback, headers, payload) {
 		var xhr = new XMLHttpRequest();
-		xhr.open('POST', 'https://discordapp.com/api/channels/' + channelId + '/messages');
-		xhr.setRequestHeader('Authorization', token);
-		xhr.setRequestHeader('Content-Type', 'application/json');
-		xhr.setRequestHeader('User-Agent', USER_AGENT);
+		
+		xhr.open(method, url);
+		
+		xhr.setRequestHeader('Authorization', DiscordTinker.token);
+		xhr.setRequestHeader('User-Agent', DiscordTinker.USER_AGENT);
+		if (headers) {
+			for (header in headers) {
+				xhr.setRequestHeader(header, headers[header]);
+			}
+		}
+		
 		xhr.addEventListener('load', function() {
-			console.log(this);
+			callback(this);
 		});
-		xhr.send(JSON.stringify({
+		
+		if (payload) {
+			xhr.send(payload);
+		} else {
+			xhr.send();
+		}
+	};
+	
+	// WebSocket low-level handling
+	DiscordTinker.WebSocket = {};
+	DiscordTinker.WebSocket.ws = null;
+	DiscordTinker.WebSocket.wsIsReady = false;
+	DiscordTinker.WebSocket.wsUrl = 'wss://gateway.discord.gg';
+	DiscordTinker.WebSocket.connect = function() {
+		DiscordTinker.WebSocket.ws = new WebSocket(DiscordTinker.WebSocket.wsUrl + '?v=5&encoding=json');
+		DiscordTinker.WebSocket.ws.onmessage = DiscordTinker.WebSocket.onmessage;
+		DiscordTinker.WebSocket.ws.onerror = DiscordTinker.WebSocket.onerror;
+		DiscordTinker.WebSocket.ws.onclose = DiscordTinker.WebSocket.onclose;
+	};
+	DiscordTinker.WebSocket.connectAfterFailure = function() {
+		DiscordTinker.HTTP.xhr('GET', 'https://discordapp.com/api/gateway', function(xhr) {
+			var gatewayUrl = JSON.parse(xhr.responseText).url;
+			if (gatewayUrl === DiscordTinker.WebSocket.wsUrl) {
+				// Something's gone badly wrong
+				// TODO: Exponential backoff
+				console.log('DiscordTinker WebSocket URL hasn\'t changed. Retrying in 5 seconds.');
+				setTimeout(DiscordTinker.WebSocket.connectAfterFailure, 5000);
+			} else {
+				console.log('DiscordTinker got new WebSocket URL: ' + gatewayUrl);
+				DiscordTinker.WebSocket.wsUrl = gatewayUrl;
+				DiscordTinker.WebSocket.connect();
+			}
+		});
+	};
+	
+	DiscordTinker.WebSocket.onmessage = function(event) {
+		var msg = JSON.parse(event.data);
+		console.log(msg);
+		DiscordTinker.Gateway.onmessage(msg.op, msg.d, msg.s, msg.t);
+	};
+	DiscordTinker.WebSocket.onerror = function(event) {
+		console.error('DiscordTinker WebSocket error', event);
+		
+		if (DiscordTinker.WebSocket.wsIsReady) {
+			// Connection dropped, etc. Retry.
+			DiscordTinker.WebSocket.connect();
+		} else {
+			// Incorrect websocket URL. Refresh.
+			connectAfterFailure();
+		}
+		
+		DiscordTinker.WebSocket.wsIsReady = false;
+		DiscordTinker.Gateway.onclose();
+	};
+	DiscordTinker.WebSocket.onclose = function(event) {
+		console.log('DiscordTinker WebSocket closed', event);
+		DiscordTinker.WebSocket.wsIsReady = false;
+		DiscordTinker.Gateway.onclose();
+	};
+	
+	// High-level gateway API operations
+	DiscordTinker.Gateway = {};
+	DiscordTinker.Gateway.Op = {
+		DISPATCH: 0,
+		HEARTBEAT: 1,
+		IDENTIFY: 2,
+		STATUS_UPDATE: 3,
+		VOICE_STATE_UPDATE: 4,
+		VOICE_SERVER_PING: 5,
+		RESUME: 6,
+		RECONNECT: 7,
+		REQUEST_GUILD_MEMBERS: 8,
+		INVALID_SESSION: 9,
+		HELLO: 10,
+		HEARTBEAT_ACK: 11
+	};
+	
+	DiscordTinker.Gateway.send = function(op, d, s, t) {
+		msg = {op: op, d: d};
+		if (s) {
+			msg.s = s;
+		}
+		if (t) {
+			msg.t = t;
+		}
+		DiscordTinker.WebSocket.ws.send(JSON.stringify(msg));
+	};
+	DiscordTinker.Gateway.onmessage = function(op, d, s, t) {
+		switch (op) {
+			case DiscordTinker.Gateway.Op.HELLO:
+				console.log('DiscordTinker Gateway got Hello');
+				// Begin sending heartbeats
+				DiscordTinker.Gateway.heartbeatTimer = setInterval(DiscordTinker.Gateway.heartbeat, d.heartbeat_interval);
+				// Send Identify
+				DiscordTinker.Gateway.identify();
+				break;
+			case DiscordTinker.Gateway.Op.DISPATCH:
+				DiscordTinker.Gateway.lastDispatchS = s;
+				switch (t) {
+					case 'READY':
+						console.log('DiscordTinker WebSocket ready');
+						DiscordTinker.WebSocket.wsIsReady = true;
+				}
+				break;
+			case DiscordTinker.Gateway.Op.INVALID_SESSION:
+				// Identify was rate limited
+				console.error('DiscordTinker Gateway got Invalid Session. Retrying after 1 second');
+				setTimeout(DiscordTinker.Gateway.identify, 1000);
+				break;
+		}
+	};
+	DiscordTinker.WebSocket.onclose = function() {
+		clearInterval(DiscordTinker.Gateway.heartbeatTimer);
+	};
+	
+	DiscordTinker.Gateway.identify = function() {
+		DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.IDENTIFY, {
+			token: DiscordTinker.token,
+			properties: {
+				'$os': 'linux',
+				'$browser': 'DiscordTinker',
+				'$device': 'DiscordTinker',
+				'$referrer': '',
+				'$referring_domain': ''
+			},
+			compress: false,
+			large_threshold: 50,
+			shard: [0, 1] // TODO: Remove
+		});
+	};
+	
+	DiscordTinker.Gateway.heartbeatTimer = null;
+	DiscordTinker.Gateway.lastDispatchS = null;
+	DiscordTinker.Gateway.heartbeat = function() {
+		DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.HEARTBEAT, DiscordTinker.Gateway.lastDispatchS);
+		DiscordTinker.Gateway.onHeartbeat();
+	};
+	DiscordTinker.Gateway.onHeartbeat = function() {
+		// Good(?) opportunity to do other periodic functions
+		// TODO: Pluginise?
+		if (DiscordTinker.Prefs.gameName !== null) {
+			DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.STATUS_UPDATE, {
+				idle_since: null,
+				game: {
+					name: DiscordTinker.Prefs.gameName
+				}
+			});
+		}
+	};
+	
+	DiscordTinker.Prefs = {};
+	DiscordTinker.Prefs.gameName = null;
+	
+	DiscordTinker.Chat = {};
+	DiscordTinker.Chat.sendEmbed = function(authorName, authorIcon, description, time) {
+		var channelId = window.location.href.split('/')[5];
+		DiscordTinker.HTTP.xhr('POST', 'https://discordapp.com/api/channels/' + channelId + '/messages', function(xhr) {
+			console.log(xhr);
+		}, {
+			'Content-Type': 'application/json'
+		}, JSON.stringify({
 			embed: {
 				description: description,
 				timestamp: time,
@@ -142,7 +231,7 @@ var heartbeatTimer;
 				}
 			}
 		}));
-	}
+	};
 	
 	window.addEventListener('keypress', function(evt) {
 		if (evt.key === 'q' && evt.altKey) {
@@ -160,39 +249,25 @@ var heartbeatTimer;
 					var msgId = commandBits[1];
 					// Get the message
 					var channelId = window.location.href.split('/')[5];
-					var xhr = new XMLHttpRequest();
-					// For some reason the channels/ID/messages/ID endpoint is restricted to bots only
-					xhr.open('GET', 'https://discordapp.com/api/channels/' + channelId + '/messages?around=' + msgId);
-					xhr.setRequestHeader('Authorization', token);
-					xhr.setRequestHeader('User-Agent', USER_AGENT);
-					xhr.addEventListener('load', function() {
-						console.log(this);
-						var messages = JSON.parse(this.responseText);
+					DiscordTinker.HTTP.xhr('GET', 'https://discordapp.com/api/channels/' + channelId + '/messages?around=' + msgId, function(xhr) {
+						console.log(xhr);
+						var messages = JSON.parse(xhr.responseText);
 						for (var message of messages) {
 							if (message.id === msgId) {
-								sendEmbed(message.author.username, 'https://cdn.discordapp.com/avatars/' + message.author.id + '/' + message.author.avatar + '.png?size=64', message.content, message.timestamp);
+								DiscordTinker.Chat.sendEmbed(message.author.username, 'https://cdn.discordapp.com/avatars/' + message.author.id + '/' + message.author.avatar + '.png?size=64', message.content, message.timestamp);
 							}
 						}
 					});
-					xhr.send();
 					break;
 				case 'status':
-					gameName = command.substring(7);
-					if (gameName !== null) {
-						ws.send(JSON.stringify({
-							op: 3,
-							d: {
-								idle_since: null,
-								game: {
-									name: gameName
-								}
-							}
-						}));
-					}
+					DiscordTinker.Prefs.gameName = command.substring(7);
+					DiscordTinker.Gateway.onHeartbeat();
 					break;
 				default:
 					alert('Unknown command');
 			}
 		}
 	});
-//});
+	
+	DiscordTinker.WebSocket.connect();
+})(window.DiscordTinker = window.DiscordTinker || {})
