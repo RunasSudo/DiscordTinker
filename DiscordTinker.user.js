@@ -2,7 +2,7 @@
 // @name        DiscordTinker
 // @namespace   https://yingtongli.me
 // @include     https://discordapp.com/*
-// @version     2
+// @version     3
 // @grant       none
 // @run-at      document-start
 // ==/UserScript==
@@ -268,11 +268,10 @@ if (typeof(GM_info) === 'undefined') {
 			if (arguments[0].displayName) {
 				if (arguments[0].displayName === 'OptionPopout') {
 					if (!arguments[0].prototype.render.patched) {
-						console.log('Patching render');
+						var createElementProps = arguments[1];
 						var patchedComponent = function() {
-							console.log('Called render');
 							var result = patchedComponent.patched.apply(this, arguments);
-							var result = DiscordTinker.Int.React.afterRenderPopout(arguments, result);
+							var result = DiscordTinker.Int.React.afterRenderPopout(createElementProps, result);
 							console.log(result);
 							return result;
 						}
@@ -285,9 +284,12 @@ if (typeof(GM_info) === 'undefined') {
 			var result = DiscordTinker.Int.React._createElement.apply(this, arguments);
 			return result;
 		};
-		DiscordTinker.Int.React.afterRenderPopout = function(args, result) {
+		DiscordTinker.Int.React.afterRenderPopout = function(props, result) {
 			// TODO: Pluggable listener architecture
-			result.props.children.push(DiscordTinker.Int.React.createFunnyElement('div', { className: 'btn-item' }, undefined, ['Quote']));
+			result.props.children.push(DiscordTinker.Int.React.createFunnyElement('div', { className: 'btn-item', onClick: function(event) {
+				// How convenient!
+				DiscordTinker.Chat.quoteMessage(props.message);
+			} }, undefined, ['Quote']));
 			return result;
 		};
 	});
@@ -314,6 +316,9 @@ if (typeof(GM_info) === 'undefined') {
 			}
 		}));
 	};
+	DiscordTinker.Chat.quoteMessage = function(message) {
+		DiscordTinker.Chat.sendEmbed(message.author.username, 'https://cdn.discordapp.com/avatars/' + message.author.id + '/' + message.author.avatar + '.png?size=64', message.content, message.timestamp);
+	}
 	
 	window.addEventListener('keypress', function(evt) {
 		if (evt.key === 'q' && evt.altKey) {
@@ -336,7 +341,7 @@ if (typeof(GM_info) === 'undefined') {
 						var messages = JSON.parse(xhr.responseText);
 						for (var message of messages) {
 							if (message.id === msgId) {
-								DiscordTinker.Chat.sendEmbed(message.author.username, 'https://cdn.discordapp.com/avatars/' + message.author.id + '/' + message.author.avatar + '.png?size=64', message.content, message.timestamp);
+								DiscordTinker.Chat.quoteMessage(message);
 							}
 						}
 					});
