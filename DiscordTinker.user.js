@@ -198,9 +198,15 @@ if (typeof(GM_info) === 'undefined') {
 		DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.HEARTBEAT, DiscordTinker.Gateway.lastDispatchS);
 		DiscordTinker.Gateway.onHeartbeat();
 	};
+	var discriminator;
 	DiscordTinker.Gateway.onHeartbeat = function() {
 		// Good(?) opportunity to do other periodic functions
 		// TODO: Pluginise?
+		
+		if (!discriminator && document.querySelector('.channels-wrap .discriminator').innerText.startsWith('#')) {
+			discriminator = document.querySelector('.channels-wrap .discriminator').innerText;
+		}
+		
 		if (DiscordTinker.Prefs.getPref('gameName', null) !== null) {
 			DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.STATUS_UPDATE, {
 				idle_since: null,
@@ -208,6 +214,9 @@ if (typeof(GM_info) === 'undefined') {
 					name: DiscordTinker.Prefs.getPref('gameName')
 				}
 			});
+			document.querySelector('.channels-wrap .discriminator').innerHTML = 'Playing <b>' + DiscordTinker.Prefs.getPref('gameName') + '</b>';
+		} else {
+			document.querySelector('.channels-wrap .discriminator').innerText = discriminator;
 		}
 	};
 	
@@ -289,7 +298,7 @@ if (typeof(GM_info) === 'undefined') {
 		DiscordTinker.Int.React.afterRenderPopout = function(props, result) {
 			// TODO: Pluggable listener architecture
 			result.props.children.push(DiscordTinker.Int.React.createFunnyElement('div', { className: 'btn-item', onClick: function(event) {
-				// How convenient!
+				// props.message already contains the message object. How convenient!
 				DiscordTinker.Chat.quoteMessage(props.message);
 				props.onClose();
 			} }, undefined, ['Quote']));
@@ -342,7 +351,11 @@ if (typeof(GM_info) === 'undefined') {
 			embed: embedObj
 		}));
 	};
-	DiscordTinker.Chat.quoteMessage = function(message) {
+	DiscordTinker.Chat.quoteMessage = function(message, messageText) {
+		if (messageText === undefined) {
+			messageText = message.content;
+		}
+		
 		var guildId = DiscordTinker.Chat.getChannelIds()[0];
 		DiscordTinker.HTTP.xhr('GET', 'https://discordapp.com/api/guilds/' + guildId + '/members/' + message.author.id, function(xhr) {
 			console.log(xhr);
@@ -371,7 +384,7 @@ if (typeof(GM_info) === 'undefined') {
 					return undefined;
 				})();
 				
-				DiscordTinker.Chat.sendEmbed(messageAuthorName, 'https://cdn.discordapp.com/avatars/' + message.author.id + '/' + message.author.avatar + '.png?size=64', message.content, message.timestamp, color);
+				DiscordTinker.Chat.sendEmbed(messageAuthorName, 'https://cdn.discordapp.com/avatars/' + message.author.id + '/' + message.author.avatar + '.png?size=64', messageText, message.timestamp, color);
 			});
 		});
 	};
@@ -403,7 +416,11 @@ if (typeof(GM_info) === 'undefined') {
 					});
 					break;
 				case 'status':
-					DiscordTinker.Prefs.setPref('gameName', command.substring(7));
+					if (commandBits.length > 1) {
+						DiscordTinker.Prefs.setPref('gameName', command.substring(7));
+					} else {
+						DiscordTinker.Prefs.setPref('gameName', null);
+					}
 					DiscordTinker.Gateway.onHeartbeat();
 					break;
 				default:
