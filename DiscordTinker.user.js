@@ -291,6 +291,7 @@ if (typeof(GM_info) === 'undefined') {
 			result.props.children.push(DiscordTinker.Int.React.createFunnyElement('div', { className: 'btn-item', onClick: function(event) {
 				// How convenient!
 				DiscordTinker.Chat.quoteMessage(props.message);
+				props.onClose();
 			} }, undefined, ['Quote']));
 			return result;
 		};
@@ -332,8 +333,19 @@ if (typeof(GM_info) === 'undefined') {
 		}));
 	};
 	DiscordTinker.Chat.quoteMessage = function(message) {
-		DiscordTinker.Chat.sendEmbed(message.author.username, 'https://cdn.discordapp.com/avatars/' + message.author.id + '/' + message.author.avatar + '.png?size=64', message.content, message.timestamp);
-	}
+		var guildId = window.location.href.split('/')[4];
+		DiscordTinker.HTTP.xhr('GET', 'https://discordapp.com/api/guilds/' + guildId + '/members/' + message.author.id, function(xhr) {
+			console.log(xhr);
+			var nickname = JSON.parse(xhr.responseText).nick;
+			var messageAuthorName = null;
+			if (nickname === undefined) {
+				messageAuthorName = message.author.username;
+			} else {
+				messageAuthorName = nickname;
+			}
+			DiscordTinker.Chat.sendEmbed(messageAuthorName, 'https://cdn.discordapp.com/avatars/' + message.author.id + '/' + message.author.avatar + '.png?size=64', message.content, message.timestamp);
+		});
+	};
 	
 	window.addEventListener('keypress', function(evt) {
 		if (evt.key === 'q' && evt.altKey) {
