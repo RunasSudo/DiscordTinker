@@ -2,7 +2,7 @@
 // @name        DiscordTinker
 // @namespace   https://yingtongli.me
 // @include     https://discordapp.com/channels/*
-// @version     3
+// @version     4
 // @grant       none
 // @run-at      document-start
 // ==/UserScript==
@@ -265,6 +265,11 @@ if (typeof(GM_info) === 'undefined') {
 	};
 	DiscordTinker.Int.WebpackModules.findByProperties = function(properties) {
 		return DiscordTinker.Int.WebpackModules.find(function(module) {
+			// Skip if primitive
+			if (module !== Object(module)) {
+				return false;
+			}
+			//console.log(Object.keys(module));
 			for (var property of properties) {
 				if (!(property in module)) {
 					return false;
@@ -280,7 +285,7 @@ if (typeof(GM_info) === 'undefined') {
 		delete DiscordTinker.Int.WebpackModules.require.m['__discord_tinker__'];
 		delete DiscordTinker.Int.WebpackModules.require.c['__discord_tinker__'];
 		
-		DiscordTinker.Int.React = DiscordTinker.Int.WebpackModules.findByProperties(['createMixin']);
+		DiscordTinker.Int.React = DiscordTinker.Int.WebpackModules.findByProperties(['Component', 'PureComponent', 'Children', 'createElement', 'cloneElement']);
 		var createElement = function() { // TODO: Patching API
 			if (arguments[0].displayName) {
 				if (DiscordTinker.Int.ReactComponents.components[arguments[0].displayName] !== arguments[0]) {
