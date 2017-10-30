@@ -19,8 +19,8 @@
 (function() {
 	var discriminator;
 	DiscordTinker.Plugin.addListener('heartbeat', function(event) {
-		if (!discriminator && document.querySelector('.channels-wrap .discriminator').innerText.startsWith('#')) {
-			discriminator = document.querySelector('.channels-wrap .discriminator').innerText;
+		if (!discriminator && document.querySelector('.discriminator').innerText.startsWith('#')) {
+			discriminator = document.querySelector('.discriminator').innerText;
 		}
 		
 		if (DiscordTinker.Prefs.getPref('gameName', null) !== null) {
@@ -30,9 +30,9 @@
 					name: DiscordTinker.Prefs.getPref('gameName')
 				}
 			});
-			document.querySelector('.channels-wrap .discriminator').innerHTML = 'Playing <b>' + DiscordTinker.Prefs.getPref('gameName') + '</b>';
+			document.querySelector('.discriminator').innerHTML = 'Playing <b>' + DiscordTinker.Prefs.getPref('gameName') + '</b>';
 		} else {
-			document.querySelector('.channels-wrap .discriminator').innerText = discriminator;
+			document.querySelector('.discriminator').innerText = discriminator;
 		}
 	});
 	
