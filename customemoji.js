@@ -78,23 +78,44 @@
 			}
 		}
 		
-		var words = text.split(' ');
-		for (var word of words) {
-			if (word.startsWith(':') && word.endsWith(':') && word.substring(1, word.length - 1) in DiscordTinker.CustomEmoji.IMAGES) {
-				addWord({
-					type: 'image',
-					content: word.substring(1, word.length - 1),
-					width: 22,
-					height: 22
-				});
-			} else {
-				addWord({
-					type: 'text',
-					content: word,
-					width: ctx.measureText(word).width,
-					height: DiscordTinker.CustomEmoji.FONT_SIZE
-				});
+		var textLines = text.split('\n');
+		for (var i = 0; i < textLines.length; i++) {
+			var words = textLines[i].split(' ');
+			for (var word of words) {
+				if (word.startsWith(':') && word.endsWith(':') && word.substring(1, word.length - 1) in DiscordTinker.CustomEmoji.IMAGES) {
+					var size = 32;
+					// Wumboji?
+					for (var otherWord of words) {
+						if (otherWord.startsWith(':') && otherWord.endsWith(':') && otherWord.substring(1, word.length - 1) in DiscordTinker.CustomEmoji.IMAGES) {
+							// Emoji - OK
+						} else {
+							// Text - not OK
+							size = 22;
+							break;
+						}
+					}
+					
+					addWord({
+						type: 'image',
+						content: word.substring(1, word.length - 1),
+						width: size,
+						height: size
+					});
+				} else {
+					addWord({
+						type: 'text',
+						content: word,
+						width: ctx.measureText(word).width,
+						height: DiscordTinker.CustomEmoji.FONT_SIZE
+					});
+				}
 			}
+			// Start a new line
+			lines.push({
+				words: [],
+				width: 0,
+				height: 0
+			});
 		}
 		
 		return lines;
@@ -172,13 +193,14 @@
 	};
 	
 	window.addEventListener('keydown', function(evt) {
-		if (evt.keyCode == 13) {
+		if (evt.keyCode == 13 && !evt.shiftKey) {
 			if (evt.target === document.querySelector('form textarea')) {
 				var shouldIntercept = false;
 				
 				for (var image of Object.keys(DiscordTinker.CustomEmoji.IMAGES)) {
 					if (evt.target.value.indexOf(':' + image + ':') >= 0) {
 						shouldIntercept = true;
+						break;
 					}
 				}
 				
