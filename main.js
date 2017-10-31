@@ -2,7 +2,7 @@
 // @name        DiscordTinker
 // @namespace   https://yingtongli.me
 // @include     https://discordapp.com/channels/*
-// @version     4
+// @version     5
 // @grant       none
 // @run-at      document-start
 // ==/UserScript==

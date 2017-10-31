@@ -80,10 +80,10 @@
 		
 		var words = text.split(' ');
 		for (var word of words) {
-			if (word === ':rooWut:') {
+			if (word.startsWith(':') && word.endsWith(':') && word.substring(1, word.length - 1) in DiscordTinker.CustomEmoji.IMAGES) {
 				addWord({
 					type: 'image',
-					content: 'rooWut',
+					content: word.substring(1, word.length - 1),
 					width: 22,
 					height: 22
 				});
@@ -170,4 +170,26 @@
 		var text = renderBits.slice(1).join(' ');
 		DiscordTinker.CustomEmoji.render(text);
 	};
+	
+	window.addEventListener('keydown', function(evt) {
+		if (evt.keyCode == 13) {
+			if (evt.target === document.querySelector('form textarea')) {
+				var shouldIntercept = false;
+				
+				for (var image of Object.keys(DiscordTinker.CustomEmoji.IMAGES)) {
+					if (evt.target.value.indexOf(':' + image + ':') >= 0) {
+						shouldIntercept = true;
+					}
+				}
+				
+				if (shouldIntercept) {
+					// Send message ourselves
+					DiscordTinker.CustomEmoji.render(evt.target.value);
+					// Prevent Discord sending message
+					evt.target.value = '';
+					evt.preventDefault();
+				}
+			}
+		}
+	});
 })();
