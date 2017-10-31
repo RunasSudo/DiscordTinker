@@ -31,6 +31,7 @@
 	DiscordTinker.CustomEmoji.SCALE = 2;
 	DiscordTinker.CustomEmoji.FONT_SIZE = 15;
 	DiscordTinker.CustomEmoji.LINE_SPACE = 16.5 - 15;
+	DiscordTinker.CustomEmoji.MARGIN_LEFT = 12;
 	DiscordTinker.CustomEmoji.IMAGES = {
 		rooWut: ['image/png', 'm4_esyscmd(`base64 img/rooWut.png | tr -d "\n"')', null]
 	};
@@ -54,7 +55,7 @@
 		
 		function addWord(word) {
 			// Can it fit on the current line?
-			if (word.width + lines[lines.length - 1].width > DiscordTinker.CustomEmoji.canvas.width) {
+			if (DiscordTinker.CustomEmoji.MARGIN_LEFT + word.width + lines[lines.length - 1].width > DiscordTinker.CustomEmoji.canvas.width) {
 				// Overflow - start a new line
 				lines.push({
 					words: [],
@@ -66,7 +67,7 @@
 			lines[lines.length - 1].width += word.width;
 			lines[lines.length - 1].height = Math.max(lines[lines.length - 1].height, word.height);
 			// Can we continue to fit things on the current line?
-			if (DiscordTinker.CustomEmoji.spaceWidth + lines[lines.length - 1].width >= DiscordTinker.CustomEmoji.canvas.width) {
+			if (DiscordTinker.CustomEmoji.MARGIN_LEFT + DiscordTinker.CustomEmoji.spaceWidth + lines[lines.length - 1].width >= DiscordTinker.CustomEmoji.canvas.width) {
 				// Will overflow - start a new line
 				lines.push({
 					words: [],
@@ -165,7 +166,7 @@
 			
 			var y = 0; // x,y of top left
 			for (var line of preparedText) {
-				var x = 0;
+				var x = DiscordTinker.CustomEmoji.MARGIN_LEFT;
 				for (var word of line.words) {
 					if (word.type === 'image') {
 						// x,y of top left
@@ -214,4 +215,9 @@
 			}
 		}
 	});
+	
+	DiscordTinker.UI.commands['caps'] = function(command, renderBits) {
+		var text = renderBits.slice(1).join(' ').toUpperCase().split('').join(' ');
+		DiscordTinker.CustomEmoji.render(text);
+	};
 })();
