@@ -218,6 +218,17 @@
 	
 	DiscordTinker.UI.commands['caps'] = function(command, renderBits) {
 		var text = renderBits.slice(1).join(' ').toUpperCase().split('').join(' ');
-		DiscordTinker.CustomEmoji.render(text);
+		if (renderBits.slice(1).join('').length > 6) {
+			DiscordTinker.CustomEmoji.render(text);
+		} else {
+			var channelId = DiscordTinker.Chat.getChannelIds()[1];
+			DiscordTinker.HTTP.xhr('POST', 'https://discordapp.com/api/channels/' + channelId + '/messages', function(xhr) {
+				console.log(xhr);
+			}, {
+				'Content-Type': 'application/json'
+			}, JSON.stringify({
+				content: text
+			}));
+		}
 	};
 })();
