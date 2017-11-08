@@ -388,4 +388,17 @@ if (typeof(GM_info) === 'undefined') {
 			}
 		}
 	});
+	
+	DiscordTinker.UI.popoutButtons = [];
+	DiscordTinker.Int.ReactComponents.patchRender('OptionPopout', function(event, orig) {
+		return function() {
+			var result = orig.apply(this, arguments);
+			for (var button of DiscordTinker.UI.popoutButtons) {
+				result.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+					button.onClick(event);
+				} }, undefined, [button.label]));
+			}
+			return result;
+		}
+	});
 })(window.DiscordTinker = window.DiscordTinker || {});

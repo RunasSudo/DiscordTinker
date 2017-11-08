@@ -388,6 +388,19 @@ if (typeof(GM_info) === 'undefined') {
 			}
 		}
 	});
+	
+	DiscordTinker.UI.popoutButtons = [];
+	DiscordTinker.Int.ReactComponents.patchRender('OptionPopout', function(event, orig) {
+		return function() {
+			var result = orig.apply(this, arguments);
+			for (var button of DiscordTinker.UI.popoutButtons) {
+				result.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+					button.onClick(event);
+				} }, undefined, [button.label]));
+			}
+			return result;
+		}
+	});
 })(window.DiscordTinker = window.DiscordTinker || {});
 
 /*
@@ -457,15 +470,12 @@ if (typeof(GM_info) === 'undefined') {
 */
 
 (function() {
-	DiscordTinker.Int.ReactComponents.patchRender('OptionPopout', function(event, orig) {
-		return function() {
-			var result = orig.apply(this, arguments);
-			result.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
-				// props.message already contains the message object. How convenient!
-				DiscordTinker.Chat.quoteMessage(event[1].message);
-				event[1].onClose();
-			} }, undefined, ['Quote']));
-			return result;
+	DiscordTinker.UI.popoutButtons.push({
+		label: 'Quote',
+		onClick: function(event) {
+			// props.message already contains the message object. How convenient!
+			DiscordTinker.Chat.quoteMessage(event[1].message);
+			event[1].onClose();
 		}
 	});
 	
