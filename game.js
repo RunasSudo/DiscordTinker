@@ -19,20 +19,35 @@
 (function() {
 	var discriminator;
 	DiscordTinker.Plugin.addListener('heartbeat', function(event) {
-		if (!discriminator && document.querySelector('.discriminator').innerText.startsWith('#')) {
-			discriminator = document.querySelector('.discriminator').innerText;
+		var discrimElem = document.querySelector('.discriminator');
+		
+		if (!discriminator && discrimElem && discrimElem.innerText.startsWith('#')) {
+			discriminator = discrimElem.innerText;
 		}
 		
 		if (DiscordTinker.Prefs.getPref('gameName', null) !== null) {
 			DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.STATUS_UPDATE, {
-				idle_since: null,
+				since: null,
 				game: {
-					name: DiscordTinker.Prefs.getPref('gameName')
-				}
+					name: DiscordTinker.Prefs.getPref('gameName'),
+					type: 0
+				},
+				status: 'online',
+				afk: false
 			});
-			document.querySelector('.discriminator').innerHTML = 'Playing <b>' + DiscordTinker.Prefs.getPref('gameName') + '</b>';
+			if (discrimElem) {
+				discrimElem.innerHTML = 'Playing <b>' + DiscordTinker.Prefs.getPref('gameName') + '</b>';
+			}
 		} else {
-			document.querySelector('.discriminator').innerText = discriminator;
+			DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.STATUS_UPDATE, {
+				since: null,
+				game: null,
+				status: 'online',
+				afk: false
+			});
+			if (discrimElem) {
+				discrimElem.innerText = discriminator;
+			}
 		}
 	});
 	

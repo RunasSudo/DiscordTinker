@@ -2,7 +2,7 @@
 // @name        DiscordTinker
 // @namespace   https://yingtongli.me
 // @include     https://discordapp.com/channels/*
-// @version     7
+// @version     8
 // @grant       none
 // @run-at      document-start
 // ==/UserScript==
@@ -114,11 +114,14 @@ if (typeof(GM_info) === 'undefined') {
 	
 	// WebSocket low-level handling
 	DiscordTinker.WebSocket = {};
+	DiscordTinker.WebSocket.VERSION = 6;
+	
 	DiscordTinker.WebSocket.ws = null;
+	DiscordTinker.WebSocket.shouldRetry = true;
 	DiscordTinker.WebSocket.wsIsReady = false;
 	DiscordTinker.WebSocket.wsUrl = 'wss://gateway.discord.gg';
 	DiscordTinker.WebSocket.connect = function() {
-		DiscordTinker.WebSocket.ws = new WebSocket(DiscordTinker.WebSocket.wsUrl + '?v=5&encoding=json');
+		DiscordTinker.WebSocket.ws = new WebSocket(DiscordTinker.WebSocket.wsUrl + '?v=' + DiscordTinker.WebSocket.VERSION + '&encoding=json');
 		DiscordTinker.WebSocket.ws.onmessage = DiscordTinker.WebSocket.onmessage;
 		DiscordTinker.WebSocket.ws.onerror = DiscordTinker.WebSocket.onerror;
 		DiscordTinker.WebSocket.ws.onclose = DiscordTinker.WebSocket.onclose;
@@ -147,12 +150,14 @@ if (typeof(GM_info) === 'undefined') {
 	DiscordTinker.WebSocket.onerror = function(event) {
 		console.error('DiscordTinker WebSocket error', event);
 		
-		if (DiscordTinker.WebSocket.wsIsReady) {
-			// Connection dropped, etc. Retry.
-			DiscordTinker.WebSocket.connect();
-		} else {
-			// Incorrect websocket URL. Refresh.
-			connectAfterFailure();
+		if (DiscordTinker.WebSocket.shouldRetry) {
+			if (DiscordTinker.WebSocket.wsIsReady) {
+				// Connection dropped, etc. Retry.
+				DiscordTinker.WebSocket.connect();
+			} else {
+				// Incorrect websocket URL. Refresh.
+				DiscordTinker.WebSocket.connectAfterFailure();
+			}
 		}
 		
 		DiscordTinker.WebSocket.wsIsReady = false;
@@ -162,6 +167,11 @@ if (typeof(GM_info) === 'undefined') {
 		console.log('DiscordTinker WebSocket closed', event);
 		DiscordTinker.WebSocket.wsIsReady = false;
 		DiscordTinker.Gateway.onclose();
+		
+		// Try to reconnect
+		if (DiscordTinker.WebSocket.shouldRetry) {
+			setTimeout(DiscordTinker.WebSocket.connect, 5000);
+		}
 	};
 	
 	// High-level gateway API operations
@@ -189,14 +199,17 @@ if (typeof(GM_info) === 'undefined') {
 		if (t) {
 			msg.t = t;
 		}
+		//console.log('DiscordTinker Gateway sending', msg);
 		DiscordTinker.WebSocket.ws.send(JSON.stringify(msg));
 	};
 	DiscordTinker.Gateway.onmessage = function(op, d, s, t) {
 		switch (op) {
 			case DiscordTinker.Gateway.Op.HELLO:
 				console.log('DiscordTinker Gateway got Hello');
+				
 				// Begin sending heartbeats
 				DiscordTinker.Gateway.heartbeatTimer = setInterval(DiscordTinker.Gateway.heartbeat, d.heartbeat_interval);
+				
 				// Send Identify
 				DiscordTinker.Gateway.identify();
 				break;
@@ -205,7 +218,20 @@ if (typeof(GM_info) === 'undefined') {
 				switch (t) {
 					case 'READY':
 						console.log('DiscordTinker WebSocket ready');
+						
+						// Check version
+						if (d.v !== DiscordTinker.WebSocket.VERSION) {
+							console.error('DiscordTinker Gateway got unsupported version ' + d.v);
+							window.alert('DiscordTinker Gateway got unsupported version ' + d.v);
+							DiscordTinker.WebSocket.shouldRetry = false;
+							DiscordTinker.WebSocket.ws.close();
+							return;
+						}
+						
+						console.log('DiscordTinker Gateway got version ' + d.v);
 						DiscordTinker.WebSocket.wsIsReady = true;
+						
+						DiscordTinker.Gateway.heartbeat();
 				}
 				break;
 			case DiscordTinker.Gateway.Op.INVALID_SESSION:
@@ -213,9 +239,12 @@ if (typeof(GM_info) === 'undefined') {
 				console.error('DiscordTinker Gateway got Invalid Session. Retrying after 1 second');
 				setTimeout(DiscordTinker.Gateway.identify, 1000);
 				break;
+			case DiscordTinker.Gateway.Op.HEARTBEAT_ACK:
+				console.log('DiscordTinker got HEARTBEAT_ACK');
+				break;
 		}
 	};
-	DiscordTinker.WebSocket.onclose = function() {
+	DiscordTinker.Gateway.onclose = function() {
 		clearInterval(DiscordTinker.Gateway.heartbeatTimer);
 	};
 	
@@ -239,6 +268,7 @@ if (typeof(GM_info) === 'undefined') {
 	DiscordTinker.Gateway.lastDispatchS = null;
 	DiscordTinker.Gateway.heartbeat = function() {
 		DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.HEARTBEAT, DiscordTinker.Gateway.lastDispatchS);
+		console.log('DiscordTinker sent HEARTBEAT');
 		DiscordTinker.Plugin.fireEvent('heartbeat');
 	};
 	
@@ -424,20 +454,35 @@ if (typeof(GM_info) === 'undefined') {
 (function() {
 	var discriminator;
 	DiscordTinker.Plugin.addListener('heartbeat', function(event) {
-		if (!discriminator && document.querySelector('.discriminator').innerText.startsWith('#')) {
-			discriminator = document.querySelector('.discriminator').innerText;
+		var discrimElem = document.querySelector('.discriminator');
+		
+		if (!discriminator && discrimElem && discrimElem.innerText.startsWith('#')) {
+			discriminator = discrimElem.innerText;
 		}
 		
 		if (DiscordTinker.Prefs.getPref('gameName', null) !== null) {
 			DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.STATUS_UPDATE, {
-				idle_since: null,
+				since: null,
 				game: {
-					name: DiscordTinker.Prefs.getPref('gameName')
-				}
+					name: DiscordTinker.Prefs.getPref('gameName'),
+					type: 0
+				},
+				status: 'online',
+				afk: false
 			});
-			document.querySelector('.discriminator').innerHTML = 'Playing <b>' + DiscordTinker.Prefs.getPref('gameName') + '</b>';
+			if (discrimElem) {
+				discrimElem.innerHTML = 'Playing <b>' + DiscordTinker.Prefs.getPref('gameName') + '</b>';
+			}
 		} else {
-			document.querySelector('.discriminator').innerText = discriminator;
+			DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.STATUS_UPDATE, {
+				since: null,
+				game: null,
+				status: 'online',
+				afk: false
+			});
+			if (discrimElem) {
+				discrimElem.innerText = discriminator;
+			}
 		}
 	});
 	
