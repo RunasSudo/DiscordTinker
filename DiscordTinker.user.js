@@ -452,9 +452,12 @@ if (typeof(GM_info) === 'undefined') {
 				DiscordTinker.Util.patchAfter(popout.props, 'render', function(optionPopout) {
 					DiscordTinker.Util.patchAfter(optionPopout.type.prototype, 'render', function(optionPopoutElement) {
 						for (var button of DiscordTinker.UI.popoutButtons) {
-							optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
-								button.onClick(event);
-							} }, undefined, [button.label]));
+							// Add the button
+							(function(button) {
+								optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+									button.onClick(optionPopout);
+								} }, undefined, [button.label]));
+							})(button);
 						}
 						return optionPopoutElement;
 					});
@@ -550,10 +553,10 @@ if (typeof(GM_info) === 'undefined') {
 (function() {
 	DiscordTinker.UI.popoutButtons.push({
 		label: 'Quote',
-		onClick: function(event) {
+		onClick: function(optionPopout) {
 			// props.message already contains the message object. How convenient!
-			DiscordTinker.Chat.quoteMessage(event[1].message);
-			event[1].onClose();
+			DiscordTinker.Chat.quoteMessage(optionPopout.props.message);
+			optionPopout.props.onClose();
 		}
 	});
 	
@@ -889,12 +892,12 @@ if (typeof(GM_info) === 'undefined') {
 (function() {
 	DiscordTinker.UI.popoutButtons.push({
 		label: 'React Text',
-		onClick: function(event) {
+		onClick: function(optionPopout) {
 			var text = window.prompt('React text?');
 			if (text) {
-				DiscordTinker.Chat.addTextReacts(event[1].message.id, DiscordTinker.Chat.getChannelIds()[1], text);
+				DiscordTinker.Chat.addTextReacts(optionPopout.props.message.id, DiscordTinker.Chat.getChannelIds()[1], text);
 			}
-			event[1].onClose();
+			optionPopout.props.onClose();
 		}
 	});
 	

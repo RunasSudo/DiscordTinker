@@ -452,9 +452,12 @@ if (typeof(GM_info) === 'undefined') {
 				DiscordTinker.Util.patchAfter(popout.props, 'render', function(optionPopout) {
 					DiscordTinker.Util.patchAfter(optionPopout.type.prototype, 'render', function(optionPopoutElement) {
 						for (var button of DiscordTinker.UI.popoutButtons) {
-							optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
-								button.onClick(event);
-							} }, undefined, [button.label]));
+							// Add the button
+							(function(button) {
+								optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+									button.onClick(optionPopout);
+								} }, undefined, [button.label]));
+							})(button);
 						}
 						return optionPopoutElement;
 					});

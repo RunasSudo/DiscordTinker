@@ -19,12 +19,12 @@
 (function() {
 	DiscordTinker.UI.popoutButtons.push({
 		label: 'React Text',
-		onClick: function(event) {
+		onClick: function(optionPopout) {
 			var text = window.prompt('React text?');
 			if (text) {
-				DiscordTinker.Chat.addTextReacts(event[1].message.id, DiscordTinker.Chat.getChannelIds()[1], text);
+				DiscordTinker.Chat.addTextReacts(optionPopout.props.message.id, DiscordTinker.Chat.getChannelIds()[1], text);
 			}
-			event[1].onClose();
+			optionPopout.props.onClose();
 		}
 	});
 	

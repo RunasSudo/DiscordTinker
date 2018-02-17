@@ -19,10 +19,10 @@
 (function() {
 	DiscordTinker.UI.popoutButtons.push({
 		label: 'Quote',
-		onClick: function(event) {
+		onClick: function(optionPopout) {
 			// props.message already contains the message object. How convenient!
-			DiscordTinker.Chat.quoteMessage(event[1].message);
-			event[1].onClose();
+			DiscordTinker.Chat.quoteMessage(optionPopout.props.message);
+			optionPopout.props.onClose();
 		}
 	});
 	
