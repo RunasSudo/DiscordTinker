@@ -444,15 +444,24 @@ if (typeof(GM_info) === 'undefined') {
 	});
 	
 	DiscordTinker.UI.popoutButtons = [];
-	DiscordTinker.Int.ReactComponents.patchRender('OptionPopout', function(event, orig) {
+	DiscordTinker.Int.ReactComponents.patchRender('Popouts', function(event, orig) {
 		return function() {
-			var result = orig.apply(this, arguments);
-			for (var button of DiscordTinker.UI.popoutButtons) {
-				result.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
-					button.onClick(event);
-				} }, undefined, [button.label]));
+			var popouts = orig.apply(this, arguments);
+			if (popouts.props.children[1].length > 0) {
+				var popout = popouts.props.children[1][0];
+				DiscordTinker.Util.patchAfter(popout.props, 'render', function(optionPopout) {
+					DiscordTinker.Util.patchAfter(optionPopout.type.prototype, 'render', function(optionPopoutElement) {
+						for (var button of DiscordTinker.UI.popoutButtons) {
+							optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+								button.onClick(event);
+							} }, undefined, [button.label]));
+						}
+						return optionPopoutElement;
+					});
+					return optionPopout;
+				});
 			}
-			return result;
+			return popouts;
 		}
 	});
 })(window.DiscordTinker = window.DiscordTinker || {});
