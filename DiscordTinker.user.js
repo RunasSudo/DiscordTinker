@@ -53,6 +53,37 @@ if (typeof(GM_info) === 'undefined') {
 		}
 	};
 	
+	// Patching helper functions
+	DiscordTinker.Util.patch = function(obj, attr, func) {
+		// Override existing patch if present
+		if (obj[attr].__discord_tinker_patched) {
+			func.__discord_tinker_patched = obj[attr].__discord_tinker_patched;
+		} else {
+			func.__discord_tinker_patched = obj[attr];
+		}
+		// Copy prototype for constructors
+		if (obj[attr].prototype) {
+			func.prototype = obj[attr].prototype;
+		}
+		// Perform the patch
+		obj[attr] = func;
+	}
+	DiscordTinker.Util.patchAfter = function(obj, attr, funcAfter) {
+		var patchedFunction = function() {
+			var result = patchedFunction.__discord_tinker_patched.apply(this, arguments);
+			return funcAfter(result);
+		};
+		DiscordTinker.Util.patch(obj, attr, patchedFunction);
+	}
+	DiscordTinker.Util.patchBefore = function(obj, attr, funcBefore) {
+		var patchedFunction = function() {
+			var args = funcBefore.apply(this, arguments);
+			var result = patchedFunction.__discord_tinker_patched.apply(this, args);
+			return result;
+		};
+		DiscordTinker.Util.patch(obj, attr, patchedFunction);
+	}
+	
 	// DiscordTinker Plugin API
 	DiscordTinker.Plugin = {};
 	DiscordTinker.Plugin.listeners = {};
@@ -316,7 +347,8 @@ if (typeof(GM_info) === 'undefined') {
 		delete DiscordTinker.Int.WebpackModules.require.c['__discord_tinker__'];
 		
 		DiscordTinker.Int.React = DiscordTinker.Int.WebpackModules.findByProperties(['Component', 'PureComponent', 'Children', 'createElement', 'cloneElement']);
-		var createElement = function() { // TODO: Patching API
+		
+		DiscordTinker.Util.patchBefore(DiscordTinker.Int.React, 'createElement', function() {
 			if (arguments[0].displayName) {
 				if (DiscordTinker.Int.ReactComponents.components[arguments[0].displayName] !== arguments[0]) {
 					DiscordTinker.Int.ReactComponents.components[arguments[0].displayName] = arguments[0];
@@ -324,11 +356,8 @@ if (typeof(GM_info) === 'undefined') {
 				}
 			}
 			DiscordTinker.Plugin.fireEvent('reactCreateElement', arguments);
-			var result = createElement.__discord_tinker_patched.apply(this, arguments);
-			return result;
-		};
-		createElement.__discord_tinker_patched = DiscordTinker.Int.React.createElement.__discord_tinker_patched !== undefined ? DiscordTinker.Int.React.createElement.__discord_tinker_undefined : DiscordTinker.Int.React.createElement;
-		DiscordTinker.Int.React.createElement = createElement;
+			return arguments;
+		});
 	});
 	
 	DiscordTinker.Int.ReactComponents = {};
@@ -364,12 +393,7 @@ if (typeof(GM_info) === 'undefined') {
 		// Every time we create an element, we need to patch the render function
 		DiscordTinker.Plugin.addListener('reactCreateElement', function(event) {
 			if (event[0].displayName === displayName) {
-				var orig = event[0].prototype.render;
-				if (orig.__discord_tinker_patched) { // TODO: Patching API
-					orig = orig.__discord_tinker_patched;
-				}
-				event[0].prototype.render = callback(event, orig);
-				event[0].prototype.render.__discord_tinker_patched = orig;
+				DiscordTinker.Util.patch(event[0].prototype, 'render', callback(event, event[0].prototype.render));
 			}
 		});
 	};
