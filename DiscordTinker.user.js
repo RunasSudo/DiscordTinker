@@ -2,7 +2,7 @@
 // @name        DiscordTinker
 // @namespace   https://yingtongli.me
 // @include     https://discordapp.com/channels/*
-// @version     9
+// @version     10
 // @grant       none
 // @run-at      document-start
 // ==/UserScript==
@@ -303,7 +303,8 @@ if (typeof(GM_info) === 'undefined') {
 		DiscordTinker.Plugin.fireEvent('heartbeat');
 	};
 	
-	DiscordTinker.WebSocket.connect();
+	// https://support.discordapp.com/hc/en-us/articles/115002192352-Automated-user-accounts-self-bots-
+	//DiscordTinker.WebSocket.connect();
 	
 	// Internal stuff
 	DiscordTinker.Int = {};
@@ -450,17 +451,19 @@ if (typeof(GM_info) === 'undefined') {
 			if (popouts.props.children[1].length > 0) {
 				var popout = popouts.props.children[1][0];
 				DiscordTinker.Util.patchAfter(popout.props, 'render', function(optionPopout) {
-					DiscordTinker.Util.patchAfter(optionPopout.type.prototype, 'render', function(optionPopoutElement) {
-						for (var button of DiscordTinker.UI.popoutButtons) {
-							// Add the button
-							(function(button) {
-								optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
-									button.onClick(optionPopout);
-								} }, undefined, [button.label]));
-							})(button);
-						}
-						return optionPopoutElement;
-					});
+					if (optionPopout.type.displayName === 'OptionPopout') {
+						DiscordTinker.Util.patchAfter(optionPopout.type.prototype, 'render', function(optionPopoutElement) {
+							for (var button of DiscordTinker.UI.popoutButtons) {
+								// Add the button
+								(function(button) {
+									optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+										button.onClick(optionPopout);
+									} }, undefined, [button.label]));
+								})(button);
+							}
+							return optionPopoutElement;
+						});
+					}
 					return optionPopout;
 				});
 			}
@@ -468,69 +471,6 @@ if (typeof(GM_info) === 'undefined') {
 		}
 	});
 })(window.DiscordTinker = window.DiscordTinker || {});
-
-/*
-    DiscordTinker
-    Copyright © 2017  RunasSudo (Yingtong Li)
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Affero General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Affero General Public License for more details.
-
-    You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
-
-(function() {
-	var discriminator;
-	DiscordTinker.Plugin.addListener('heartbeat', function(event) {
-		var discrimElem = document.querySelector('.discriminator');
-		
-		if (!discriminator && discrimElem && discrimElem.innerText.startsWith('#')) {
-			discriminator = discrimElem.innerText;
-		}
-		
-		if (DiscordTinker.Prefs.getPref('gameName', null) !== null) {
-			DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.STATUS_UPDATE, {
-				since: null,
-				game: {
-					name: DiscordTinker.Prefs.getPref('gameName'),
-					type: 0
-				},
-				status: 'online',
-				afk: false
-			});
-			if (discrimElem) {
-				discrimElem.innerHTML = 'Playing <b>' + DiscordTinker.Prefs.getPref('gameName') + '</b>';
-			}
-		} else {
-			DiscordTinker.Gateway.send(DiscordTinker.Gateway.Op.STATUS_UPDATE, {
-				since: null,
-				game: null,
-				status: 'online',
-				afk: false
-			});
-			if (discrimElem) {
-				discrimElem.innerText = discriminator;
-			}
-		}
-	});
-	
-	DiscordTinker.UI.commands['status'] = function(command, commandBits) {
-		if (commandBits.length > 1) {
-			DiscordTinker.Prefs.setPref('gameName', command.substring(7));
-		} else {
-			DiscordTinker.Prefs.setPref('gameName', null);
-		}
-		DiscordTinker.Plugin.fireEvent('heartbeat');
-	};
-})();
 
 /*
     DiscordTinker

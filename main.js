@@ -2,7 +2,7 @@
 // @name        DiscordTinker
 // @namespace   https://yingtongli.me
 // @include     https://discordapp.com/channels/*
-// @version     9
+// @version     10
 // @grant       none
 // @run-at      document-start
 // ==/UserScript==
@@ -303,7 +303,8 @@ if (typeof(GM_info) === 'undefined') {
 		DiscordTinker.Plugin.fireEvent('heartbeat');
 	};
 	
-	DiscordTinker.WebSocket.connect();
+	// https://support.discordapp.com/hc/en-us/articles/115002192352-Automated-user-accounts-self-bots-
+	//DiscordTinker.WebSocket.connect();
 	
 	// Internal stuff
 	DiscordTinker.Int = {};
@@ -450,17 +451,19 @@ if (typeof(GM_info) === 'undefined') {
 			if (popouts.props.children[1].length > 0) {
 				var popout = popouts.props.children[1][0];
 				DiscordTinker.Util.patchAfter(popout.props, 'render', function(optionPopout) {
-					DiscordTinker.Util.patchAfter(optionPopout.type.prototype, 'render', function(optionPopoutElement) {
-						for (var button of DiscordTinker.UI.popoutButtons) {
-							// Add the button
-							(function(button) {
-								optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
-									button.onClick(optionPopout);
-								} }, undefined, [button.label]));
-							})(button);
-						}
-						return optionPopoutElement;
-					});
+					if (optionPopout.type.displayName === 'OptionPopout') {
+						DiscordTinker.Util.patchAfter(optionPopout.type.prototype, 'render', function(optionPopoutElement) {
+							for (var button of DiscordTinker.UI.popoutButtons) {
+								// Add the button
+								(function(button) {
+									optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+										button.onClick(optionPopout);
+									} }, undefined, [button.label]));
+								})(button);
+							}
+							return optionPopoutElement;
+						});
+					}
 					return optionPopout;
 				});
 			}
