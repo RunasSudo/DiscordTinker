@@ -2,14 +2,14 @@
 // @name        DiscordTinker
 // @namespace   https://yingtongli.me
 // @include     https://discordapp.com/channels/*
-// @version     10
+// @version     11
 // @grant       none
 // @run-at      document-start
 // ==/UserScript==
 
 /*
     DiscordTinker
-    Copyright © 2017  RunasSudo (Yingtong Li)
+    Copyright © 2017-18  RunasSudo (Yingtong Li)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -343,7 +343,13 @@ if (typeof(GM_info) === 'undefined') {
 	
 	// We must wait for the Javascript to be loaded before patching
 	DiscordTinker.Util.onLoad(function() {
-		DiscordTinker.Int.WebpackModules.require = webpackJsonp([], {'__discord_tinker__': function(module, exports, req) { exports.default = req; }}, ['__discord_tinker__']).default;
+		if (typeof(webpackJsonp) === 'function') {
+			// Now unused?
+			DiscordTinker.Int.WebpackModules.require = webpackJsonp([], {'__discord_tinker__': function(module, exports, req) { exports.default = req; }}, ['__discord_tinker__']).default;
+		} else {
+			// Webpack 4
+			DiscordTinker.Int.WebpackModules.require = webpackJsonp.push([[], {'__discord_tinker__': function(module, exports, req) { exports.default = req; }}, [['__discord_tinker__']]]).default;
+		}
 		delete DiscordTinker.Int.WebpackModules.require.m['__discord_tinker__'];
 		delete DiscordTinker.Int.WebpackModules.require.c['__discord_tinker__'];
 		
@@ -451,14 +457,32 @@ if (typeof(GM_info) === 'undefined') {
 			if (popouts.props.children[1].length > 0) {
 				var popout = popouts.props.children[1][0];
 				DiscordTinker.Util.patchAfter(popout.props, 'render', function(optionPopout) {
-					if (optionPopout.type.displayName === 'OptionPopout') {
+					//if (optionPopout.type.displayName === 'OptionPopout') {
+					if (optionPopout.props.hasOwnProperty('canDelete')) {
 						DiscordTinker.Util.patchAfter(optionPopout.type.prototype, 'render', function(optionPopoutElement) {
+							// Find a button to use as a template
+							// TODO: Poke in optionPopout.type.prototype.render and do this better
+							var template = null;
+							for (var child of optionPopoutElement.props.children) {
+								if (typeof(child.props.children) === 'string') {
+									template = child;
+									break;
+								}
+							}
+							
 							for (var button of DiscordTinker.UI.popoutButtons) {
 								// Add the button
 								(function(button) {
-									optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+									var button_obj = Object.assign({}, template);
+									button_obj.props = Object.assign({}, template.props);
+									button_obj.props.children = button.label;
+									button_obj.props.onClick = function() {
 										button.onClick(optionPopout);
-									} }, undefined, [button.label]));
+									};
+									optionPopoutElement.props.children.push(button_obj);
+									//optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+									//	button.onClick(optionPopout);
+									//} }, undefined, [button.label]));
 								})(button);
 							}
 							return optionPopoutElement;

@@ -42,28 +42,38 @@
 			if (c.toLowerCase() >= 'a' && c.toLowerCase() <= 'z') {
 				var letter_index = c.toLowerCase().charCodeAt(0) - 97;
 				var emoji = String.fromCodePoint(0x1f1e6 + letter_index);
-				if (reacts.indexOf(emoji) < 0) {
-					reacts.push(emoji);
-				} else {
-					// Repeat letter
-					if (c === 'a' && reacts.indexOf(String.fromCodePoint(0x1f170)) < 0)
-						reacts.push(String.fromCodePoint(0x1f170));
-					else if (c === 'b' && reacts.indexOf(String.fromCodePoint(0x1f171)) < 0)
-						reacts.push(String.fromCodePoint(0x1f171));
-					else if (c === 'o' && reacts.indexOf(String.fromCodePoint(0x30, 0xfe0f, 0x20e3)) < 0)
-						reacts.push(String.fromCodePoint(0x30, 0xfe0f, 0x20e3));
-					else if (c === 'o' && reacts.indexOf(String.fromCodePoint(0x1f17e)) < 0)
-						reacts.push(String.fromCodePoint(0x1f17e));
-					else if (c === 'i' && reacts.indexOf(String.fromCodePoint(0x31, 0xfe0f, 0x20e3)) < 0)
-						reacts.push(String.fromCodePoint(0x31, 0xfe0f, 0x20e3));
-					else {
-						window.alert('Don\'t know how to repeat character: ' + c);
-						return;
-					}
-				}
+			} else if (c >= '0' && c <= '9') {
+				var number_index = c.toLowerCase().charCodeAt(0) - 48;
+				var emoji = String.fromCodePoint(0x30 + number_index, 0x20e3);
 			} else {
 				window.alert('Unsupported character: ' + c);
 				return;
+			}
+			
+			if (reacts.indexOf(emoji) < 0) {
+				reacts.push(emoji);
+			} else {
+				// Repeat letter
+				if (c === 'a' && reacts.indexOf(String.fromCodePoint(0x1f170)) < 0)
+					reacts.push(String.fromCodePoint(0x1f170));
+				else if (c === 'b' && reacts.indexOf(String.fromCodePoint(0x1f171)) < 0)
+					reacts.push(String.fromCodePoint(0x1f171));
+				else if (c === 'd' && reacts.indexOf(String.fromCodePoint(0x36, 0x20e3)) < 0)
+					reacts.push(String.fromCodePoint(0x36, 0x20e3));
+				else if (c === 'e' && reacts.indexOf(String.fromCodePoint(0x33, 0x20e3)) < 0)
+					reacts.push(String.fromCodePoint(0x33, 0x20e3));
+				else if (c === 'o' && reacts.indexOf(String.fromCodePoint(0x30, 0x20e3)) < 0)
+					reacts.push(String.fromCodePoint(0x30, 0x20e3));
+				else if (c === 'o' && reacts.indexOf(String.fromCodePoint(0x1f17e)) < 0)
+					reacts.push(String.fromCodePoint(0x1f17e));
+				else if (c === 'i' && reacts.indexOf(String.fromCodePoint(0x31, 0x20e3)) < 0)
+					reacts.push(String.fromCodePoint(0x31, 0x20e3));
+				else if (c === 'l' && reacts.indexOf(String.fromCodePoint(0x31, 0x20e3)) < 0)
+					reacts.push(String.fromCodePoint(0x31, 0x20e3));
+				else {
+					window.alert('Don\'t know how to repeat character: ' + c);
+					return;
+				}
 			}
 		}
 		

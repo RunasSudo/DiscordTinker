@@ -2,14 +2,14 @@
 // @name        DiscordTinker
 // @namespace   https://yingtongli.me
 // @include     https://discordapp.com/channels/*
-// @version     10
+// @version     11
 // @grant       none
 // @run-at      document-start
 // ==/UserScript==
 
 /*
     DiscordTinker
-    Copyright © 2017  RunasSudo (Yingtong Li)
+    Copyright © 2017-18  RunasSudo (Yingtong Li)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -343,7 +343,13 @@ if (typeof(GM_info) === 'undefined') {
 	
 	// We must wait for the Javascript to be loaded before patching
 	DiscordTinker.Util.onLoad(function() {
-		DiscordTinker.Int.WebpackModules.require = webpackJsonp([], {'__discord_tinker__': function(module, exports, req) { exports.default = req; }}, ['__discord_tinker__']).default;
+		if (typeof(webpackJsonp) === 'function') {
+			// Now unused?
+			DiscordTinker.Int.WebpackModules.require = webpackJsonp([], {'__discord_tinker__': function(module, exports, req) { exports.default = req; }}, ['__discord_tinker__']).default;
+		} else {
+			// Webpack 4
+			DiscordTinker.Int.WebpackModules.require = webpackJsonp.push([[], {'__discord_tinker__': function(module, exports, req) { exports.default = req; }}, [['__discord_tinker__']]]).default;
+		}
 		delete DiscordTinker.Int.WebpackModules.require.m['__discord_tinker__'];
 		delete DiscordTinker.Int.WebpackModules.require.c['__discord_tinker__'];
 		
@@ -451,14 +457,32 @@ if (typeof(GM_info) === 'undefined') {
 			if (popouts.props.children[1].length > 0) {
 				var popout = popouts.props.children[1][0];
 				DiscordTinker.Util.patchAfter(popout.props, 'render', function(optionPopout) {
-					if (optionPopout.type.displayName === 'OptionPopout') {
+					//if (optionPopout.type.displayName === 'OptionPopout') {
+					if (optionPopout.props.hasOwnProperty('canDelete')) {
 						DiscordTinker.Util.patchAfter(optionPopout.type.prototype, 'render', function(optionPopoutElement) {
+							// Find a button to use as a template
+							// TODO: Poke in optionPopout.type.prototype.render and do this better
+							var template = null;
+							for (var child of optionPopoutElement.props.children) {
+								if (typeof(child.props.children) === 'string') {
+									template = child;
+									break;
+								}
+							}
+							
 							for (var button of DiscordTinker.UI.popoutButtons) {
 								// Add the button
 								(function(button) {
-									optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+									var button_obj = Object.assign({}, template);
+									button_obj.props = Object.assign({}, template.props);
+									button_obj.props.children = button.label;
+									button_obj.props.onClick = function() {
 										button.onClick(optionPopout);
-									} }, undefined, [button.label]));
+									};
+									optionPopoutElement.props.children.push(button_obj);
+									//optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+									//	button.onClick(optionPopout);
+									//} }, undefined, [button.label]));
 								})(button);
 							}
 							return optionPopoutElement;
@@ -855,28 +879,38 @@ if (typeof(GM_info) === 'undefined') {
 			if (c.toLowerCase() >= 'a' && c.toLowerCase() <= 'z') {
 				var letter_index = c.toLowerCase().charCodeAt(0) - 97;
 				var emoji = String.fromCodePoint(0x1f1e6 + letter_index);
-				if (reacts.indexOf(emoji) < 0) {
-					reacts.push(emoji);
-				} else {
-					// Repeat letter
-					if (c === 'a' && reacts.indexOf(String.fromCodePoint(0x1f170)) < 0)
-						reacts.push(String.fromCodePoint(0x1f170));
-					else if (c === 'b' && reacts.indexOf(String.fromCodePoint(0x1f171)) < 0)
-						reacts.push(String.fromCodePoint(0x1f171));
-					else if (c === 'o' && reacts.indexOf(String.fromCodePoint(0x30, 0xfe0f, 0x20e3)) < 0)
-						reacts.push(String.fromCodePoint(0x30, 0xfe0f, 0x20e3));
-					else if (c === 'o' && reacts.indexOf(String.fromCodePoint(0x1f17e)) < 0)
-						reacts.push(String.fromCodePoint(0x1f17e));
-					else if (c === 'i' && reacts.indexOf(String.fromCodePoint(0x31, 0xfe0f, 0x20e3)) < 0)
-						reacts.push(String.fromCodePoint(0x31, 0xfe0f, 0x20e3));
-					else {
-						window.alert('Don\'t know how to repeat character: ' + c);
-						return;
-					}
-				}
+			} else if (c >= '0' && c <= '9') {
+				var number_index = c.toLowerCase().charCodeAt(0) - 48;
+				var emoji = String.fromCodePoint(0x30 + number_index, 0x20e3);
 			} else {
 				window.alert('Unsupported character: ' + c);
 				return;
+			}
+			
+			if (reacts.indexOf(emoji) < 0) {
+				reacts.push(emoji);
+			} else {
+				// Repeat letter
+				if (c === 'a' && reacts.indexOf(String.fromCodePoint(0x1f170)) < 0)
+					reacts.push(String.fromCodePoint(0x1f170));
+				else if (c === 'b' && reacts.indexOf(String.fromCodePoint(0x1f171)) < 0)
+					reacts.push(String.fromCodePoint(0x1f171));
+				else if (c === 'd' && reacts.indexOf(String.fromCodePoint(0x36, 0x20e3)) < 0)
+					reacts.push(String.fromCodePoint(0x36, 0x20e3));
+				else if (c === 'e' && reacts.indexOf(String.fromCodePoint(0x33, 0x20e3)) < 0)
+					reacts.push(String.fromCodePoint(0x33, 0x20e3));
+				else if (c === 'o' && reacts.indexOf(String.fromCodePoint(0x30, 0x20e3)) < 0)
+					reacts.push(String.fromCodePoint(0x30, 0x20e3));
+				else if (c === 'o' && reacts.indexOf(String.fromCodePoint(0x1f17e)) < 0)
+					reacts.push(String.fromCodePoint(0x1f17e));
+				else if (c === 'i' && reacts.indexOf(String.fromCodePoint(0x31, 0x20e3)) < 0)
+					reacts.push(String.fromCodePoint(0x31, 0x20e3));
+				else if (c === 'l' && reacts.indexOf(String.fromCodePoint(0x31, 0x20e3)) < 0)
+					reacts.push(String.fromCodePoint(0x31, 0x20e3));
+				else {
+					window.alert('Don\'t know how to repeat character: ' + c);
+					return;
+				}
 			}
 		}
 		
