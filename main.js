@@ -2,7 +2,7 @@
 // @name        DiscordTinker
 // @namespace   https://yingtongli.me
 // @include     https://discordapp.com/channels/*
-// @version     11
+// @version     12
 // @grant       none
 // @run-at      document-start
 // ==/UserScript==
@@ -461,29 +461,45 @@ if (typeof(GM_info) === 'undefined') {
 					if (optionPopout.props.hasOwnProperty('canDelete')) {
 						DiscordTinker.Util.patchAfter(optionPopout.type.prototype, 'render', function(optionPopoutElement) {
 							// Find a button to use as a template
-							// TODO: Poke in optionPopout.type.prototype.render and do this better
-							var template = null;
-							for (var child of optionPopoutElement.props.children) {
-								if (typeof(child.props.children) === 'string') {
-									template = child;
-									break;
+							function findButtonRecursively(element) {
+								for (var child of element.props.children) {
+									if (child && child.props) {
+										if (typeof(child.props.children) === 'string') {
+											if (child.props.role === 'menuitem') {
+												return child;
+											}
+										} else {
+											// Recurse
+											var ret = findButtonRecursively(child);
+											if (ret) {
+												return ret;
+											}
+										}
+									}
 								}
+								return null;
 							}
 							
-							for (var button of DiscordTinker.UI.popoutButtons) {
-								// Add the button
-								(function(button) {
-									var button_obj = Object.assign({}, template);
-									button_obj.props = Object.assign({}, template.props);
-									button_obj.props.children = button.label;
-									button_obj.props.onClick = function() {
-										button.onClick(optionPopout);
-									};
-									optionPopoutElement.props.children.push(button_obj);
-									//optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
-									//	button.onClick(optionPopout);
-									//} }, undefined, [button.label]));
-								})(button);
+							var template = findButtonRecursively(optionPopoutElement);
+							
+							if (template) {
+								for (var button of DiscordTinker.UI.popoutButtons) {
+									// Add the button
+									(function(button) {
+										var button_obj = Object.assign({}, template);
+										button_obj.props = Object.assign({}, template.props);
+										button_obj.props.children = button.label;
+										button_obj.props.onClick = function() {
+											button.onClick(optionPopout);
+										};
+										optionPopoutElement.props.children.push(button_obj);
+										//optionPopoutElement.props.children.push(DiscordTinker.Int.ReactComponents.createFunnyElement('div', { className: 'btn-item', onClick: function() {
+										//	button.onClick(optionPopout);
+										//} }, undefined, [button.label]));
+									})(button);
+								}
+							} else {
+								console.log('Could not find a suitable button to clone');
 							}
 							return optionPopoutElement;
 						});
